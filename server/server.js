@@ -6,7 +6,7 @@ import adminRoutes from "./src/routes/adminRoutes.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import companyRoutes from "./src/routes/company.routes.js";
 import testRoutes from "./src/routes/testRoutes.js";
-
+import jobRoutes from "./src/routes/jobRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -24,6 +24,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/company", companyRoutes);
 
+//Student and get all companies route
+app.use("/api/jobs", jobRoutes);
 
 // test route
 app.get("/", (req, res) => {
