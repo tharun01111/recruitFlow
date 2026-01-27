@@ -4,6 +4,7 @@ import dotenv from "dotenv"
 import connectDB from "./src/config/db.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
 import authRoutes from "./src/routes/authRoutes.js";
+import companyRoutes from "./src/routes/company.routes.js";
 import testRoutes from "./src/routes/testRoutes.js";
 
 
@@ -21,6 +22,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 
 app.use("/api/test", testRoutes);
+app.use("/api/company", companyRoutes);
+
 
 // test route
 app.get("/", (req, res) => {

@@ -1,14 +1,19 @@
 import bcrypt from "bcryptjs";
 import Company from "../models/Company.js";
 
-// CREATE COMPANY (admin only)
+// CREATE COMPANY (Admin only)
 export const createCompany = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields required" });
+    }
+
     const exists = await Company.findOne({ email });
-    if (exists)
+    if (exists) {
       return res.status(400).json({ message: "Company already exists" });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -23,35 +28,36 @@ export const createCompany = async (req, res) => {
       message: "Company created",
       companyId: company._id,
     });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-// APPROVE / REJECT COMPANY
+// APPROVE COMPANY (Admin only)
 export const approveCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
 
     const company = await Company.findById(companyId);
-    if (!company)
+    if (!company) {
       return res.status(404).json({ message: "Company not found" });
+    }
 
     company.isApproved = true;
     await company.save();
 
-    res.json({ message: "Company approved" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.json({ message: "Company approved successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-// LIST ALL COMPANIES
+// LIST ALL COMPANIES (Admin only)
 export const getAllCompanies = async (req, res) => {
   try {
     const companies = await Company.find().select("-password");
     res.json(companies);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

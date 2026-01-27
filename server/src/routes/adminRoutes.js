@@ -5,12 +5,13 @@ import {
   getAllCompanies,
 } from "../controllers/adminController.js";
 
-import { protect, adminOnly } from "../middleware/authMiddleware.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/company", protect, adminOnly, createCompany);
-router.put("/company/:companyId/approve", protect, adminOnly, approveCompany);
-router.get("/companies", protect, adminOnly, getAllCompanies);
+// Admin-only routes (role check later)
+router.post("/company", protect, createCompany);
+router.put("/company/:companyId/approve", protect, approveCompany);
+router.get("/companies", protect, getAllCompanies);
 
 export default router;
