@@ -5,12 +5,16 @@ import connectDB from "./src/config/db.js";
 import adminRoutes from "./src/routes/adminRoutes.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import testRoutes from "./src/routes/testRoutes.js";
+import studentRoutes from "./src/routes/studentRoutes.js";
+
 
 
 dotenv.config();
 connectDB();
 
 const app = express();
+  
+
 
 // middlewares
 app.use(cors());
@@ -21,6 +25,12 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 
 app.use("/api/test", testRoutes);
+
+
+
+app.use("/api/student", studentRoutes);
+
+
 
 // test route
 app.get("/", (req, res) => {
