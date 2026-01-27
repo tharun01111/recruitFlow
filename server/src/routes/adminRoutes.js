@@ -3,9 +3,12 @@ import {
   createCompany,
   approveCompany,
   getAllCompanies,
+  createJob,
+  getAllJobs,
+  closeJob,
 } from "../controllers/adminController.js";
 
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, adminOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -13,5 +16,14 @@ const router = express.Router();
 router.post("/company", protect, createCompany);
 router.put("/company/:companyId/approve", protect, approveCompany);
 router.get("/companies", protect, getAllCompanies);
+
+// Job management (Admin only)
+router.post("/jobs", protect, adminOnly, createJob);
+
+//Get all Jobs for Admin
+router.get("/jobs", protect, adminOnly, getAllJobs);
+
+//Close the job only admin
+router.put("/jobs/:jobId/close", protect, adminOnly, closeJob);
 
 export default router;
