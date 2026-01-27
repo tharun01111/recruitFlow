@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import Company from "../models/Company.js";
 import Job from "../models/Job.js";
+import mongoose from "mongoose";
 
 // CREATE COMPANY (Admin only)
 export const createCompany = async (req, res) => {
@@ -87,9 +88,7 @@ export const createJob = async (req, res) => {
     }
 
     if (!company.isApproved) {
-      return res
-        .status(400)
-        .json({ message: "Company is not approved" });
+      return res.status(400).json({ message: "Company is not approved" });
     }
 
     // Create job
@@ -146,5 +145,102 @@ export const closeJob = async (req, res) => {
     res.json({ message: "Job closed successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+//Dashboard stats
+export const getDashboardStats = async (req, res) => {
+  try {
+    const [
+      totalCompanies,
+      approvedCompanies,
+      totalJobs,
+      activeJobs,
+      closedJobs,
+    ] = await Promise.all([
+      Company.countDocuments(),
+      Company.countDocuments({ isApproved: true }),
+      Job.countDocuments(),
+      Job.countDocuments({ isActive: true }),
+      Job.countDocuments({ isActive: false }),
+    ]);
+
+    res.status(200).json({
+      companies: {
+        total: totalCompanies,
+        approved: approvedCompanies,
+      },
+      jobs: {
+        total: totalJobs,
+        active: activeJobs,
+        closed: closedJobs,
+      },
+    });
+  } catch (error) {
+    console.error("Dashboard stats error:", error);
+    res.status(500).json({ message: "Failed to fetch dashboard statistics" });
+  }
+};
+
+//Update job stats
+export const updateJob = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { title, description, eligibility, isActive } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    const job = await Job.findById(jobId).populate("company");
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    // Block updates if company is not approved
+    if (!job.company.isApproved) {
+      return res
+        .status(400)
+        .json({ message: "Cannot update job for unapproved company" });
+    }
+
+    // Update allowed fields only
+    if (title !== undefined) job.title = title;
+    if (description !== undefined) job.description = description;
+
+    if (eligibility) {
+      if (eligibility.minCGPA !== undefined) {
+        job.eligibility.minCGPA = eligibility.minCGPA;
+      }
+      if (eligibility.skills !== undefined) {
+        job.eligibility.skills = eligibility.skills;
+      }
+    }
+
+    if (isActive !== undefined) job.isActive = isActive;
+
+    const updatedJob = await job.save();
+
+    res.status(200).json({
+      message: "Job updated successfully",
+      job: {
+        _id: updatedJob._id,
+        title: updatedJob.title,
+        description: updatedJob.description,
+        eligibility: updatedJob.eligibility,
+        isActive: updatedJob.isActive,
+      },
+    });
+  } catch (error) {
+    // Handle duplicate title error (unique index)
+    if (error.code === 11000) {
+      return res
+        .status(400)
+        .json({ message: "Job title already exists for this company" });
+    }
+
+    console.error("Update job error:", error);
+    res.status(500).json({ message: "Failed to update job" });
   }
 };

@@ -6,6 +6,8 @@ import {
   createJob,
   getAllJobs,
   closeJob,
+  getDashboardStats,
+  updateJob,
 } from "../controllers/adminController.js";
 
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
@@ -25,5 +27,11 @@ router.get("/jobs", protect, adminOnly, getAllJobs);
 
 //Close the job only admin
 router.put("/jobs/:jobId/close", protect, adminOnly, closeJob);
+
+//Get Dashboard stats
+router.get("/dashboard/stats", protect, adminOnly, getDashboardStats);
+
+//Update job stats
+router.put("/jobs/:jobId", protect, adminOnly, updateJob);
 
 export default router;
