@@ -1,20 +1,22 @@
 import bcrypt from "bcryptjs";
 import Company from "../models/Company.js";
 import Job from "../models/Job.js";
-import mongoose from "mongoose";
+import AppError from "../utils/AppError.js";
 
-// CREATE COMPANY (Admin only)
-export const createCompany = async (req, res) => {
+/**
+ * CREATE COMPANY (Admin only)
+ */
+export const createCompany = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields required" });
+      throw new AppError("All fields required", 400);
     }
 
     const exists = await Company.findOne({ email });
     if (exists) {
-      return res.status(400).json({ message: "Company already exists" });
+      throw new AppError("Company already exists", 400);
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -27,34 +29,42 @@ export const createCompany = async (req, res) => {
     });
 
     res.status(201).json({
+      success: true,
       message: "Company created",
       companyId: company._id,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-// APPROVE COMPANY (Admin only)
-export const approveCompany = async (req, res) => {
+/**
+ * APPROVE COMPANY (Admin only)
+ */
+export const approveCompany = async (req, res, next) => {
   try {
     const { companyId } = req.params;
 
     const company = await Company.findById(companyId);
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      throw new AppError("Company not found", 404);
     }
 
     company.isApproved = true;
     await company.save();
 
-    res.json({ message: "Company approved successfully" });
+    res.json({
+      success: true,
+      message: "Company approved successfully",
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-// LIST ALL COMPANIES (Admin only)
+/**
+ * LIST ALL COMPANIES (Admin only)
+ */
 export const getAllCompanies = async (req, res, next) => {
   try {
     const { approved } = req.query;
@@ -82,30 +92,28 @@ export const getAllCompanies = async (req, res, next) => {
           email: company.email,
           isApproved: company.isApproved,
           createdAt: company.createdAt,
-          jobs: {
-            total,
-            active,
-            closed,
-          },
+          jobs: { total, active, closed },
         };
-      }),
+      })
     );
 
     res.status(200).json({
+      success: true,
       count: companiesWithJobs.length,
       companies: companiesWithJobs,
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-//Create JOB(Admin only)
-export const createJob = async (req, res) => {
+/**
+ * CREATE JOB (Admin only)
+ */
+export const createJob = async (req, res, next) => {
   try {
     const { title, description, companyId, eligibility } = req.body;
 
-    // Basic validation
     if (
       !title ||
       !description ||
@@ -114,20 +122,18 @@ export const createJob = async (req, res) => {
       eligibility.minCGPA === undefined ||
       !eligibility.skills
     ) {
-      return res.status(400).json({ message: "All fields are required" });
+      throw new AppError("All fields are required", 400);
     }
 
-    // Check company existence and approval
     const company = await Company.findById(companyId);
     if (!company) {
-      return res.status(404).json({ message: "Company not found" });
+      throw new AppError("Company not found", 404);
     }
 
     if (!company.isApproved) {
-      return res.status(400).json({ message: "Company is not approved" });
+      throw new AppError("Company is not approved", 400);
     }
 
-    // Create job
     const job = await Job.create({
       title,
       description,
@@ -137,50 +143,56 @@ export const createJob = async (req, res) => {
     });
 
     res.status(201).json({
+      success: true,
       message: "Job created successfully",
       jobId: job._id,
     });
   } catch (err) {
-    // Duplicate title per company
     if (err.code === 11000) {
-      return res.status(400).json({
-        message: "Job with this title already exists for this company",
-      });
+      return next(
+        new AppError(
+          "Job with this title already exists for this company",
+          400
+        )
+      );
     }
-
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-//Get all Jobs
-export const getAllJobs = async (req, res) => {
+/**
+ * GET ALL JOBS (Admin only)
+ */
+export const getAllJobs = async (req, res, next) => {
   try {
     const jobs = await Job.find()
       .populate("company", "name email")
       .sort({ createdAt: -1 });
 
-    res.json(jobs);
+    res.json({
+      success: true,
+      count: jobs.length,
+      jobs,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-// CLOSE JOB (Admin only)
-export const closeJob = async (req, res) => {
+/**
+ * CLOSE JOB (Admin only)
+ */
+export const closeJob = async (req, res, next) => {
   try {
     const { jobId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(jobId)) {
-      return res.status(404).json({ message: "Job not found" });
-    }
-
     const job = await Job.findById(jobId);
     if (!job) {
-      return res.status(404).json({ message: "Job not found" });
+      throw new AppError("Job not found", 404);
     }
 
     if (!job.isActive) {
-      return res.status(400).json({ message: "Job is already closed" });
+      throw new AppError("Job is already closed", 400);
     }
 
     job.isActive = false;
@@ -189,28 +201,30 @@ export const closeJob = async (req, res) => {
 
     await job.save();
 
-    res.json({ message: "Job closed successfully" });
+    res.json({
+      success: true,
+      message: "Job closed successfully",
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-//Reopen Job (Admin Only)
-export const reopenJob = async (req, res) => {
+/**
+ * REOPEN JOB (Admin only)
+ */
+export const reopenJob = async (req, res, next) => {
   try {
     const { jobId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(jobId)) {
-      return res.status(404).json({ message: "Job not found" });
-    }
 
     const job = await Job.findById(jobId);
     if (!job) {
-      return res.status(404).json({ message: "Job not found" });
+      throw new AppError("Job not found", 404);
     }
 
     if (job.isActive) {
-      return res.status(400).json({ message: "Job is already active" });
+      throw new AppError("Job is already active", 400);
     }
 
     job.isActive = true;
@@ -218,14 +232,19 @@ export const reopenJob = async (req, res) => {
 
     await job.save();
 
-    res.json({ message: "Job reopened successfully" });
+    res.json({
+      success: true,
+      message: "Job reopened successfully",
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-//Dashboard stats
-export const getDashboardStats = async (req, res) => {
+/**
+ * DASHBOARD STATS
+ */
+export const getDashboardStats = async (req, res, next) => {
   try {
     const [
       totalCompanies,
@@ -242,6 +261,7 @@ export const getDashboardStats = async (req, res) => {
     ]);
 
     res.status(200).json({
+      success: true,
       companies: {
         total: totalCompanies,
         approved: approvedCompanies,
@@ -252,36 +272,38 @@ export const getDashboardStats = async (req, res) => {
         closed: closedJobs,
       },
     });
-  } catch (error) {
-    console.error("Dashboard stats error:", error);
-    res.status(500).json({ message: "Failed to fetch dashboard statistics" });
+  } catch (err) {
+    next(err);
   }
 };
 
-//Update job stats
-export const updateJob = async (req, res) => {
+/**
+ * UPDATE JOB (Admin only)
+ */
+export const updateJob = async (req, res, next) => {
   try {
     const { jobId } = req.params;
-    const { title, description, eligibility, isActive } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(jobId)) {
-      return res.status(404).json({ message: "Job not found" });
-    }
+    const { title, description, eligibility } = req.body;
 
     const job = await Job.findById(jobId).populate("company");
-
     if (!job) {
-      return res.status(404).json({ message: "Job not found" });
+      throw new AppError("Job not found", 404);
     }
 
-    // Block updates if company is not approved
     if (!job.company.isApproved) {
-      return res
-        .status(400)
-        .json({ message: "Cannot update job for unapproved company" });
+      throw new AppError(
+        "Cannot update job for unapproved company",
+        400
+      );
     }
 
-    // Update allowed fields only
+    if (!job.isActive) {
+      throw new AppError(
+        "Closed jobs cannot be updated. Reopen the job first.",
+        400
+      );
+    }
+
     if (title !== undefined) job.title = title;
     if (description !== undefined) job.description = description;
 
@@ -294,16 +316,10 @@ export const updateJob = async (req, res) => {
       }
     }
 
-    // ❌ BLOCK ALL UPDATES IF JOB IS CLOSED
-    if (!job.isActive) {
-      return res.status(400).json({
-        message: "Closed jobs cannot be updated. Reopen the job first.",
-      });
-    }
-
     const updatedJob = await job.save();
 
     res.status(200).json({
+      success: true,
       message: "Job updated successfully",
       job: {
         _id: updatedJob._id,
@@ -313,27 +329,28 @@ export const updateJob = async (req, res) => {
         isActive: updatedJob.isActive,
       },
     });
-  } catch (error) {
-    // Handle duplicate title error (unique index)
-    if (error.code === 11000) {
-      return res
-        .status(400)
-        .json({ message: "Job title already exists for this company" });
+  } catch (err) {
+    if (err.code === 11000) {
+      return next(
+        new AppError(
+          "Job title already exists for this company",
+          400
+        )
+      );
     }
-
-    console.error("Update job error:", error);
-    res.status(500).json({ message: "Failed to update job" });
+    next(err);
   }
 };
 
-//Get Job Summary
+/**
+ * COMPANY JOB SUMMARY (Dashboard)
+ */
 export const getCompanyJobSummary = async (req, res, next) => {
   try {
     const companies = await Company.find()
       .select("name isApproved")
       .sort({ createdAt: -1 });
 
-    // Build summaries in parallel
     const summaries = await Promise.all(
       companies.map(async (company) => {
         const [total, active, closed] = await Promise.all([
@@ -346,20 +363,17 @@ export const getCompanyJobSummary = async (req, res, next) => {
           _id: company._id,
           name: company.name,
           isApproved: company.isApproved,
-          jobs: {
-            total,
-            active,
-            closed,
-          },
+          jobs: { total, active, closed },
         };
-      }),
+      })
     );
 
     res.status(200).json({
+      success: true,
       count: summaries.length,
       companies: summaries,
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };

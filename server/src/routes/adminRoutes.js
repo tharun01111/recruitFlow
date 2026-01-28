@@ -12,34 +12,67 @@ import {
   getCompanyJobSummary,
 } from "../controllers/adminController.js";
 
+import validateObjectId from "../middleware/validateObjectId.js";
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// Admin-only routes (role check later)
-router.post("/company", protect, createCompany);
-router.put("/company/:companyId/approve", protect, approveCompany);
+/**
+ * COMPANY (Admin only)
+ */
+router.post("/company", protect, adminOnly, createCompany);
+
+router.put(
+  "/company/:companyId/approve",
+  protect,
+  adminOnly,
+  validateObjectId("companyId"),
+  approveCompany,
+);
+
 router.get("/companies", protect, adminOnly, getAllCompanies);
 
-// Job management (Admin only)
+/**
+ * JOB MANAGEMENT (Admin only)
+ */
 router.post("/jobs", protect, adminOnly, createJob);
 
-//Get all Jobs for Admin
 router.get("/jobs", protect, adminOnly, getAllJobs);
 
-//Close the job only admin
-router.put("/jobs/:jobId/close", protect, adminOnly, closeJob);
+router.put(
+  "/jobs/:jobId/close",
+  protect,
+  adminOnly,
+  validateObjectId("jobId"),
+  closeJob,
+);
 
-// Reopen job (Admin only)
-router.patch("/jobs/:jobId/reopen", protect, adminOnly, reopenJob);
+router.patch(
+  "/jobs/:jobId/reopen",
+  protect,
+  adminOnly,
+  validateObjectId("jobId"),
+  reopenJob,
+);
 
-//Get Dashboard stats
+router.put(
+  "/jobs/:jobId",
+  protect,
+  adminOnly,
+  validateObjectId("jobId"),
+  updateJob,
+);
+
+/**
+ * DASHBOARD
+ */
 router.get("/dashboard/stats", protect, adminOnly, getDashboardStats);
 
-//Update job stats
-router.put("/jobs/:jobId", protect, adminOnly, updateJob);
-
-//Get Job summary
-router.get("/dashboard/company-summary", protect, adminOnly, getCompanyJobSummary);
+router.get(
+  "/dashboard/company-summary",
+  protect,
+  adminOnly,
+  getCompanyJobSummary,
+);
 
 export default router;
