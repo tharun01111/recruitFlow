@@ -78,3 +78,34 @@ export const getStudentProfile = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const updateStudentProfile = async (req, res) => {
+  try {
+    const { cgpa, skills, resume } = req.body;
+
+    const student = await Student.findById(req.user.id);
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Update only if provided
+    if (cgpa !== undefined) student.cgpa = cgpa;
+    if (skills !== undefined) student.skills = skills;
+    if (resume !== undefined) student.resume = resume;
+
+    const updatedStudent = await student.save();
+
+    res.json({
+      _id: updatedStudent._id,
+      name: updatedStudent.name,
+      email: updatedStudent.email,
+      cgpa: updatedStudent.cgpa,
+      skills: updatedStudent.skills,
+      resume: updatedStudent.resume
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

@@ -18,6 +18,19 @@ const studentSchema = new mongoose.Schema(
     role: {
       type: String,
       default: "student"
+    },
+
+    // 🔽 NEW PROFILE FIELDS
+    cgpa: {
+      type: Number,
+      min: 0,
+      max: 10
+    },
+    skills: {
+      type: [String]
+    },
+    resume: {
+      type: String
     }
   },
   { timestamps: true }
