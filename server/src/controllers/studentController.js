@@ -109,3 +109,34 @@ export const updateStudentProfile = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getStudentDashboard = async (req, res) => {
+  try {
+    const student = await Student.findById(req.user.id).select(
+      "-password"
+    );
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const profileComplete = Boolean(
+    student.cgpa !== undefined &&
+    student.skills?.length > 0 &&
+    student.resume
+    );
+
+
+    res.json({
+      name: student.name,
+      email: student.email,
+      cgpa: student.cgpa || null,
+      skills: student.skills || [],
+      resume: student.resume || null,
+      profileComplete
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

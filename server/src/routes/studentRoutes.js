@@ -3,7 +3,8 @@ import {
   registerStudent,
   loginStudent,
   getStudentProfile,
-  updateStudentProfile
+  updateStudentProfile,
+   getStudentDashboard
 } from "../controllers/studentController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -16,5 +17,6 @@ router.get("/profile", protect, getStudentProfile);
 
 // 🔽 NEW
 router.put("/profile", protect, updateStudentProfile);
+router.get("/dashboard", protect, getStudentDashboard);
 
 export default router;
