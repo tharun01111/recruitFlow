@@ -4,25 +4,37 @@ const studentSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: true,
-      trim: true,
+      required: true
     },
     email: {
       type: String,
       required: true,
-      unique: true,
-      lowercase: true,
+      unique: true
     },
     password: {
       type: String,
-      required: true,
+      required: true
     },
-    isActive: {
-      type: Boolean,
-      default: true,
+    role: {
+      type: String,
+      default: "student"
     },
+
+    // 🔽 NEW PROFILE FIELDS
+    cgpa: {
+      type: Number,
+      min: 0,
+      max: 10
+    },
+    skills: {
+      type: [String]
+    },
+    resume: {
+      type: String
+    }
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Student", studentSchema);
+const Student = mongoose.model("Student", studentSchema);
+export default Student;
