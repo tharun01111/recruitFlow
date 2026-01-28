@@ -55,12 +55,48 @@ export const approveCompany = async (req, res) => {
 };
 
 // LIST ALL COMPANIES (Admin only)
-export const getAllCompanies = async (req, res) => {
+export const getAllCompanies = async (req, res, next) => {
   try {
-    const companies = await Company.find().select("-password");
-    res.json(companies);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    const { approved } = req.query;
+
+    const filter = {};
+    if (approved !== undefined) {
+      filter.isApproved = approved === "true";
+    }
+
+    const companies = await Company.find(filter)
+      .select("-password")
+      .sort({ createdAt: -1 });
+
+    const companiesWithJobs = await Promise.all(
+      companies.map(async (company) => {
+        const [total, active, closed] = await Promise.all([
+          Job.countDocuments({ company: company._id }),
+          Job.countDocuments({ company: company._id, isActive: true }),
+          Job.countDocuments({ company: company._id, isActive: false }),
+        ]);
+
+        return {
+          _id: company._id,
+          name: company.name,
+          email: company.email,
+          isApproved: company.isApproved,
+          createdAt: company.createdAt,
+          jobs: {
+            total,
+            active,
+            closed,
+          },
+        };
+      }),
+    );
+
+    res.status(200).json({
+      count: companiesWithJobs.length,
+      companies: companiesWithJobs,
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -134,15 +170,55 @@ export const closeJob = async (req, res) => {
   try {
     const { jobId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
     const job = await Job.findById(jobId);
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
 
+    if (!job.isActive) {
+      return res.status(400).json({ message: "Job is already closed" });
+    }
+
     job.isActive = false;
+    job.closedAt = new Date();
+    job.reopenedAt = null;
+
     await job.save();
 
     res.json({ message: "Job closed successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+//Reopen Job (Admin Only)
+export const reopenJob = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    if (job.isActive) {
+      return res.status(400).json({ message: "Job is already active" });
+    }
+
+    job.isActive = true;
+    job.reopenedAt = new Date();
+
+    await job.save();
+
+    res.json({ message: "Job reopened successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -218,7 +294,12 @@ export const updateJob = async (req, res) => {
       }
     }
 
-    if (isActive !== undefined) job.isActive = isActive;
+    // ❌ BLOCK ALL UPDATES IF JOB IS CLOSED
+    if (!job.isActive) {
+      return res.status(400).json({
+        message: "Closed jobs cannot be updated. Reopen the job first.",
+      });
+    }
 
     const updatedJob = await job.save();
 
@@ -242,5 +323,43 @@ export const updateJob = async (req, res) => {
 
     console.error("Update job error:", error);
     res.status(500).json({ message: "Failed to update job" });
+  }
+};
+
+//Get Job Summary
+export const getCompanyJobSummary = async (req, res, next) => {
+  try {
+    const companies = await Company.find()
+      .select("name isApproved")
+      .sort({ createdAt: -1 });
+
+    // Build summaries in parallel
+    const summaries = await Promise.all(
+      companies.map(async (company) => {
+        const [total, active, closed] = await Promise.all([
+          Job.countDocuments({ company: company._id }),
+          Job.countDocuments({ company: company._id, isActive: true }),
+          Job.countDocuments({ company: company._id, isActive: false }),
+        ]);
+
+        return {
+          _id: company._id,
+          name: company.name,
+          isApproved: company.isApproved,
+          jobs: {
+            total,
+            active,
+            closed,
+          },
+        };
+      }),
+    );
+
+    res.status(200).json({
+      count: summaries.length,
+      companies: summaries,
+    });
+  } catch (error) {
+    next(error);
   }
 };

@@ -1,6 +1,7 @@
 import express from "express";
 import Company from "../models/Company.js";
 import { protect, companyOnly } from "../middleware/authMiddleware.js";
+import { getPublicCompanies } from "../controllers/companyController.js";
 
 const router = express.Router();
 
@@ -22,5 +23,8 @@ router.get("/me", protect, companyOnly, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+//Get all companies publically
+router.get("/", getPublicCompanies);  
 
 export default router;

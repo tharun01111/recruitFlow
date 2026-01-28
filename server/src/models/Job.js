@@ -40,8 +40,16 @@ const jobSchema = new mongoose.Schema(
       ref: "Admin",
       required: true,
     },
+    closedAt: {
+      type: Date,
+      default: null,
+    },
+    reopenedAt: {
+      type: Date,
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 /**

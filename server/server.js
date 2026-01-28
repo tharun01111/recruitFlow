@@ -23,6 +23,7 @@ app.use("/api/admin", adminRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/company", companyRoutes);
+app.use("/api/companies", companyRoutes);
 
 //Student and get all companies route
 app.use("/api/jobs", jobRoutes);
