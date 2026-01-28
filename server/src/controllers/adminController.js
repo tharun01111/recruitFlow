@@ -11,12 +11,30 @@ export const createCompany = async (req, res, next) => {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      throw new AppError("All fields required", 400);
+      throw new AppError(
+        "All fields are required.",
+        400,
+        {
+          expected: "name, email, password",
+          received: "incomplete request body",
+          action: "Send all required fields"
+        }
+      );
     }
 
-    const exists = await Company.findOne({ email });
-    if (exists) {
-      throw new AppError("Company already exists", 400);
+    // BOTH name and email should be unique
+    const existingCompany = await Company.findOne({
+      $or: [{ email }, { name }]
+    });
+
+    if (existingCompany) {
+      throw new AppError(
+        "Company already exists.",
+        400,
+        {
+          action: "Use a different company name or email"
+        }
+      );
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -30,7 +48,7 @@ export const createCompany = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: "Company created",
+      message: "Company created successfully.",
       companyId: company._id,
     });
   } catch (err) {
@@ -47,15 +65,31 @@ export const approveCompany = async (req, res, next) => {
 
     const company = await Company.findById(companyId);
     if (!company) {
-      throw new AppError("Company not found", 404);
+      throw new AppError(
+        "Company not found.",
+        404,
+        {
+          expected: "existing company ID",
+          received: companyId,
+          action: "Check the company ID and try again"
+        }
+      );
+    }
+
+    // Idempotent behavior
+    if (company.isApproved) {
+      return res.status(200).json({
+        success: true,
+        message: "Company is already approved."
+      });
     }
 
     company.isApproved = true;
     await company.save();
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: "Company approved successfully",
+      message: "Company approved successfully."
     });
   } catch (err) {
     next(err);
@@ -372,6 +406,64 @@ export const getCompanyJobSummary = async (req, res, next) => {
       success: true,
       count: summaries.length,
       companies: summaries,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * DELETE COMPANY (Admin only)
+ * Rule:
+ * - Company can be deleted ONLY if it has NO active jobs
+ * - Closed jobs are deleted along with the company
+ */
+export const deleteCompany = async (req, res, next) => {
+  try {
+    const { companyId } = req.params;
+
+    const company = await Company.findById(companyId);
+    if (!company) {
+      throw new AppError(
+        "Company not found.",
+        404,
+        {
+          expected: "existing company ID",
+          received: companyId,
+          action: "Check the company ID and try again"
+        }
+      );
+    }
+
+    // Check for active jobs
+    const activeJobsCount = await Job.countDocuments({
+      company: companyId,
+      isActive: true
+    });
+
+    if (activeJobsCount > 0) {
+      throw new AppError(
+        "Company cannot be deleted.",
+        400,
+        {
+          reason: "Company has active job postings",
+          action: "Close all active jobs before deleting the company"
+        }
+      );
+    }
+
+    // Delete closed jobs
+    await Job.deleteMany({
+      company: companyId,
+      isActive: false
+    });
+
+    // Delete company
+    await company.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Company and its closed jobs deleted successfully."
     });
   } catch (err) {
     next(err);

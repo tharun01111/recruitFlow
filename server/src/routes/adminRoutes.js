@@ -10,6 +10,7 @@ import {
   getDashboardStats,
   updateJob,
   getCompanyJobSummary,
+  deleteCompany,
 } from "../controllers/adminController.js";
 
 import validateObjectId from "../middleware/validateObjectId.js";
@@ -31,6 +32,14 @@ router.put(
 );
 
 router.get("/companies", protect, adminOnly, getAllCompanies);
+
+router.delete(
+  "/company/:companyId",
+  protect,
+  adminOnly,
+  validateObjectId("companyId"),
+  deleteCompany,
+);
 
 /**
  * JOB MANAGEMENT (Admin only)
