@@ -28,6 +28,22 @@ const jobSchema = new mongoose.Schema(
         type: [String],
         required: true,
       },
+      minSkillMatch: {
+        type: Number,
+        default: 1,
+      },
+    },
+
+    applyStartAt: {
+      type: Date,
+    },
+
+    applyEndAt: {
+      type: Date,
+    },
+
+    applicationCap: {
+      type: Number,
     },
 
     isActive: {

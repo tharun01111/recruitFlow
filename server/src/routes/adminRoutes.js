@@ -11,6 +11,7 @@ import {
   updateJob,
   getCompanyJobSummary,
   deleteCompany,
+  runShortlisting,
 } from "../controllers/adminController.js";
 
 import validateObjectId from "../middleware/validateObjectId.js";
@@ -82,6 +83,14 @@ router.get(
   protect,
   adminOnly,
   getCompanyJobSummary,
+);
+
+//Run admin shortlist
+router.post(
+  "/jobs/:jobId/shortlist",
+  protect,
+  adminOnly,
+  runShortlisting
 );
 
 export default router;

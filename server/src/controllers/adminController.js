@@ -2,6 +2,10 @@ import bcrypt from "bcryptjs";
 import Company from "../models/Company.js";
 import Job from "../models/Job.js";
 import AppError from "../utils/AppError.js";
+import Student from "../models/Student.js";
+import JobApplication from "../models/JobApplication.js";
+import ShortlistResult from "../models/ShortlistResult.js";
+import { evaluateStudent } from "../services/eligibilityEngine.js";
 
 /**
  * CREATE COMPANY (Admin only)
@@ -146,17 +150,44 @@ export const getAllCompanies = async (req, res, next) => {
  */
 export const createJob = async (req, res, next) => {
   try {
-    const { title, description, companyId, eligibility } = req.body;
+    const {
+      title,
+      description,
+      companyId,
+      eligibility,
+      applyStartAt,
+      applyEndAt,
+      applicationCap,
+    } = req.body;
+
+    if (!title || !description || !companyId || !eligibility) {
+      throw new AppError("All fields are required", 400);
+    }
 
     if (
-      !title ||
-      !description ||
-      !companyId ||
-      !eligibility ||
       eligibility.minCGPA === undefined ||
-      !eligibility.skills
+      !Array.isArray(eligibility.skills) ||
+      eligibility.skills.length === 0 ||
+      eligibility.minSkillMatch === undefined
     ) {
-      throw new AppError("All fields are required", 400);
+      throw new AppError(
+        "Eligibility must include minCGPA, skills, and minSkillMatch",
+        400
+      );
+    }
+
+    if (!applyStartAt || !applyEndAt) {
+      throw new AppError(
+        "Application start and end dates are required",
+        400
+      );
+    }
+
+    if (new Date(applyStartAt) >= new Date(applyEndAt)) {
+      throw new AppError(
+        "applyEndAt must be after applyStartAt",
+        400
+      );
     }
 
     const company = await Company.findById(companyId);
@@ -173,6 +204,9 @@ export const createJob = async (req, res, next) => {
       description,
       company: companyId,
       eligibility,
+      applyStartAt,
+      applyEndAt,
+      applicationCap,
       createdBy: req.user.id,
     });
 
@@ -467,5 +501,78 @@ export const deleteCompany = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+};
+
+//Shortlisting endpoint accessed and switched on by admin
+export const runShortlisting = async (req, res, next) => {
+  try {
+    const adminId = req.user.id;
+    const { jobId } = req.params;
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return next(new AppError("Job not found.", 404));
+    }
+
+    const existing = await ShortlistResult.findOne({ job: jobId });
+    if (existing) {
+      return next(
+        new AppError("Shortlisting already completed for this job.", 400)
+      );
+    }
+
+    const applications = await JobApplication.find({ job: jobId })
+      .populate("student", "skills")
+      .exec();
+
+    if (applications.length === 0) {
+      return next(
+        new AppError("No applications found for this job.", 400)
+      );
+    }
+
+    const results = [];
+    let shortlistedCount = 0;
+    let rejectedCount = 0;
+
+    for (const app of applications) {
+      const evaluation = evaluateStudent({
+        student: app.student,
+        job,
+      });
+
+      if (evaluation.status === "SHORTLISTED") {
+        shortlistedCount++;
+      } else {
+        rejectedCount++;
+      }
+
+      results.push({
+        student: app.student._id,
+        status: evaluation.status,
+        reasons: evaluation.reasons,
+        matchedSkills: evaluation.matchedSkills,
+      });
+    }
+
+    const shortlistResult = await ShortlistResult.create({
+      job: jobId,
+      triggeredBy: adminId,
+      summary: {
+        totalApplicants: applications.length,
+        shortlistedCount,
+        rejectedCount,
+      },
+      results,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Shortlisting completed successfully.",
+      summary: shortlistResult.summary,
+    });
+  } catch (error) {
+    next(error);
   }
 };

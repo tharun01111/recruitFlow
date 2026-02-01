@@ -4,7 +4,8 @@ import {
   loginStudent,
   getStudentProfile,
   updateStudentProfile,
-   getStudentDashboard
+  getStudentDashboard,
+  applyToJob,
 } from "../controllers/studentController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -15,8 +16,10 @@ router.post("/register", registerStudent);
 router.post("/login", loginStudent);
 router.get("/profile", protect, getStudentProfile);
 
-// 🔽 NEW
 router.put("/profile", protect, updateStudentProfile);
 router.get("/dashboard", protect, getStudentDashboard);
+
+//Applying for jobs
+router.post("/jobs/:jobId/apply", protect, applyToJob);
 
 export default router;

@@ -1,18 +1,21 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Student from "../models/Student.js";
+import Job from "../models/Job.js";
+import JobApplication from "../models/JobApplication.js";
+import AppError from "../utils/AppError.js";
 
-export const registerStudent = async (req, res) => {
+export const registerStudent = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, cgpa, skills, resume } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+      return next(new AppError("Name, email and password are required", 400));
     }
 
     const existingStudent = await Student.findOne({ email });
     if (existingStudent) {
-      return res.status(400).json({ message: "Student already exists" });
+      return next(new AppError("Student already exists", 400));
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -22,7 +25,10 @@ export const registerStudent = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: "student"
+      role: "student",
+      cgpa,
+      skills,
+      resume
     });
 
     const token = jwt.sign(
@@ -31,10 +37,19 @@ export const registerStudent = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.status(201).json({ token });
+    res.status(201).json({
+      success: true,
+      token,
+      student: {
+        id: student._id,
+        name: student.name,
+        email: student.email,
+        cgpa: student.cgpa,
+        skills: student.skills
+      }
+    });
   } catch (error) {
-     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };
 
@@ -136,5 +151,63 @@ export const getStudentDashboard = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const applyToJob = async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const { jobId } = req.params;
+
+    const job = await Job.findById(jobId);
+    if (!job || !job.isActive) {
+      return next(new AppError("Job not found or inactive.", 404));
+    }
+
+    const now = new Date();
+    if (
+      (job.applyStartAt && now < job.applyStartAt) ||
+      (job.applyEndAt && now > job.applyEndAt)
+    ) {
+      return next(
+        new AppError("Applications are not open for this job.", 400)
+      );
+    }
+
+    const student = await Student.findById(studentId).select("cgpa");
+    if (!student) {
+      return next(new AppError("Student not found.", 404));
+    }
+
+    if (student.cgpa < job.eligibility.minCGPA) {
+      return next(
+        new AppError(
+          `Minimum CGPA required is ${job.eligibility.minCGPA}.`,
+          400
+        )
+      );
+    }
+
+    if (job.applicationCap) {
+      const count = await JobApplication.countDocuments({ job: jobId });
+      if (count >= job.applicationCap) {
+        return next(
+          new AppError("Application limit reached for this job.", 400)
+        );
+      }
+    }
+
+    const application = await JobApplication.create({
+      student: studentId,
+      job: jobId,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Applied successfully.",
+      applicationId: application._id,
+    });
+  } catch (error) {
+    next(error);
   }
 };
