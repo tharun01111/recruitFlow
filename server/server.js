@@ -6,13 +6,14 @@ import adminRoutes from "./src/routes/adminRoutes.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import companyRoutes from "./src/routes/company.routes.js";
 import testRoutes from "./src/routes/testRoutes.js";
-import jobRoutes from "./src/routes/jobRoutes.js";
-import errorHandler from "./src/middleware/errorMiddleware.js";
+
 
 dotenv.config();
 connectDB();
 
 const app = express();
+  
+
 
 // middlewares
 app.use(cors());
@@ -25,8 +26,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/company", companyRoutes);
 app.use("/api/companies", companyRoutes);
 
-//Student and get all companies route
-app.use("/api/jobs", jobRoutes);
+app.use("/api/test", testRoutes);
 
 // test route
 app.get("/", (req, res) => {
